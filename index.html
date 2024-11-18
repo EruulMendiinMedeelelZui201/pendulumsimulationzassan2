@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNUMS Visual Lab - Pendulum Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        /* Main body and layout adjustments */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            flex: 0 1 150px; /* Make header flexible but limited to 150px */
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+
+        header p {
+            margin: 5px 0;
+            font-size: 1.2em;
+            font-style: italic;
+        }
+
+        /* Navigation Bar */
+        nav {
+            display: flex;
+            justify-content: center;
+            background-color: #444;
+            padding: 10px 0;
+            flex: 0 1 50px; /* Limited height for nav */
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 1.2em;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        /* Controls Section */
+        #controls {
+            margin: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex: 0 1 100px; /* Flexible space for controls */
+        }
+
+        /* Footer Styles */
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            margin-top: auto; /* Push footer to the bottom */
+        }
+
+        footer p {
+            margin: 5px 0;
+            font-size: 1em;
+        }
+
+        footer a {
+            color: #FFD700;
+        }
+
+        /* Simulation Container */
+        #simulation-container {
+            flex: 1 1 auto; /* Take up the remaining space for the simulation */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Section -->
+    <header>
+        <h1>MNUMS Visual Lab</h1>
+        <p>Exploring the Universe Through Simulation</p>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+    </nav>
+
+    <!-- Simulation Controls -->
+    <div id="controls">
+      <label>Length (m): <input type="number" id="lengthInput" value="1" style="width: 50px;"></label> <!-- New Length Input -->
+        <label>Initial Angle: <input type="number" id="angleInput" value="45" style="width: 50px;"></label>
+        <label>Oscillations: <input type="number" id="oscillationsInput" value="3" style="width: 50px;"></label>
+        <button onclick="updateSimulation()">Start Simulation</button>
+        <button onclick="resetSimulation()">Reset</button>
+        <label>Select Body:
+            <select id="bodySelect">
+                <option value="0">Mercury</option>
+                <option value="1">Venus</option>
+                <option value="2" selected>Earth</option>
+                <option value="3">Moon</option>
+                <option value="4">Mars</option>
+                <option value="5">Jupiter</option>
+                <option value="6">Saturn</option>
+                <option value="7">Uranus</option>
+                <option value="8">Neptune</option>
+                <option value="9">Pluto</option>
+            </select>
+        </label>
+        <label><input type="checkbox" id="airResistanceCheckbox"> Air Resistance</label>
+    </div>
+
+    <!-- Simulation Container -->
+    <div id="simulation-container">
+        <script>
+            let bodies = [
+                { name: "Mercury", gravity: 3.7, color: [169, 169, 169] },
+                { name: "Venus", gravity: 8.87, color: [218, 165, 32] },
+                { name: "Earth", gravity: 9.81, color: [135, 206, 235] },
+                { name: "Moon", gravity: 1.62, color: [211, 211, 211] },
+                { name: "Mars", gravity: 3.71, color: [178, 34, 34] },
+                { name: "Jupiter", gravity: 24.79, color: [205, 133, 63] },
+                { name: "Saturn", gravity: 10.44, color: [210, 180, 140] },
+                { name: "Uranus", gravity: 8.69, color: [72, 209, 204] },
+                { name: "Neptune", gravity: 11.15, color: [25, 25, 112] },
+                { name: "Pluto", gravity: 0.62, color: [112, 128, 144] }
+            ];
+
+            let length = 1; // Length of the pendulum arm (meters)
+            let gravity = bodies[2].gravity; // Default gravity for Earth
+            let angle, angularVelocity = 0, angularAcceleration = 0;
+            let timeStep = 0.016; // Time step for simulation (60 FPS)
+            let oscillations = 3;
+            let initialAngleDeg = 45;
+            let period;
+            let oscillationCount = 0;
+            let potentialEnergy, kineticEnergy, totalEnergy;
+            let bgColor = bodies[2].color; // Default background color
+            let earthView = false;
+            let swinging = true;
+
+            let sunX = 100; // Sun position
+            let sunY = 100;
+            let sunSize = 80; // Sun size
+            let sunSpeed = 1;
+            let direction = 1; // Sun movement direction
+
+            function setup() {
+                let canvasHeight = windowHeight - 150; // Adjust height for header/footer space
+                let canvasWidth = windowWidth - 100; // Adjust width for margins
+                createCanvas(canvasWidth, canvasHeight);
+                angle = radians(initialAngleDeg); // Initial angle in radians
+                period = 2 * Math.PI * Math.sqrt(length / gravity); // Calculate pendulum period
+                resetSimulation();
+                noLoop(); // Stop the draw loop initially
+            }
+
+            function resetSimulation() {
+                initialAngleDeg = parseFloat(document.getElementById('angleInput').value);
+                 length = parseFloat(document.getElementById('lengthInput').value); // Get length value from input
+                oscillations = parseInt(document.getElementById('oscillationsInput').value);
+                let selectedBody = parseInt(document.getElementById('bodySelect').value);
+                gravity = bodies[selectedBody].gravity;
+                bgColor = bodies[selectedBody].color;
+                angle = radians(initialAngleDeg);
+                angularVelocity = 0;
+                potentialEnergy = 0;
+                kineticEnergy = 0;
+                totalEnergy = 0;
+                period = 2 * Math.PI * Math.sqrt(length / gravity);
+                oscillationCount = 0;
+                swinging = true; // Reset swinging state
+                earthView = selectedBody !== 2; // If not Earth, show space background
+                noLoop(); // Stop the simulation
+            }
+
+            function updateSimulation() {
+                resetSimulation();
+                loop(); // Start the draw loop
+            }
+
+            function draw() {
+                if (earthView) {
+                    background(bgColor[0], bgColor[1], bgColor[2]);
+                } else {
+                    drawSpaceBackground();
+                }
+
+                drawGround();
+                drawEnvironment();
+                drawMovingSun();
+                drawPendulumMechanics();
+                drawEnergies();
+            }
+
+            function drawSpaceBackground() {
+                background(0);
+                for (let i = 0; i < 100; i++) {
+                    let x = random(width);
+                    let y = random(height);
+                    stroke(255);
+                    point(x, y);
+                }
+            }
+
+            function drawGround() {
+                stroke(34, 139, 34);
+                fill(139, 69, 19);
+                rect(0, height - 50, width, 50);
+            }
+
+            function drawEnvironment() {
+                drawTripod();
+            }
+
+            function drawTripod() {
+                stroke(100);
+                strokeWeight(4);
+                line(width / 2 - 50, 100, width / 2 + 50, 100);
+                line(width / 2 - 50, 100, width / 2 - 100, height);
+                line(width / 2 + 50, 100, width / 2 + 100, height);
+            }
+
+            function drawMovingSun() {
+                fill(255, 204, 0);
+                ellipse(sunX, sunY, sunSize, sunSize);
+                sunX += sunSpeed * direction;
+                if (sunX > width - 100 || sunX < 100) {
+                    direction *= -1;
+                }
+            }
+
+            function drawPendulumMechanics() {
+                if (swinging) {
+                    angularAcceleration = -(gravity / length) * sin(angle);
+                    angularVelocity += angularAcceleration * timeStep;
+
+                    if (document.getElementById('airResistanceCheckbox').checked) {
+                        angularVelocity *= 0.995; // Damping factor for air resistance
+                    }
+
+                    angle += angularVelocity * timeStep;
+
+                    let x = width / 2 + length * 200 * sin(angle);
+                    let y = 100 + length * 200 * cos(angle);
+
+                    stroke(0, 102, 204);
+                    line(width / 2, 100, x, y);
+                    fill(200, 0, 0);
+                    ellipse(x, y, 20, 20);
+
+                    if (angularVelocity < 0 && angle < 0 && abs(angle) < radians(1)) {
+                        oscillationCount++;
+                        if (oscillationCount >= oscillations) {
+                            swinging = false;
+                        }
+                    }
+                }
+            }
+
+            function drawEnergies() {
+                potentialEnergy = length * gravity * (1 - cos(angle));
+                kineticEnergy = 0.5 * length * sq(angularVelocity);
+                totalEnergy = potentialEnergy + kineticEnergy;
+
+                fill(255, 0, 0);
+                textSize(16);
+                text("Angle: " + degrees(angle).toFixed(2) + "°", 10, 20);
+                text("Potential Energy: " + potentialEnergy.toFixed(2) + " J", 10, 40);
+                text("Kinetic Energy: " + kineticEnergy.toFixed(2) + " J", 10, 60);
+                text("Total Energy: " + totalEnergy.toFixed(2) + " J", 10, 80);
+                text("Oscillations: " + oscillationCount + "/" + oscillations, 10, 100);
+                text("Period: " + period.toFixed(2) + " s", 10, 120);
+            }
+
+            function windowResized() {
+                let canvasHeight = windowHeight - 150;
+                let canvasWidth = windowWidth - 100;
+                resizeCanvas(canvasWidth, canvasHeight);
+            }
+        </script>
+    </div>
+
+    <!-- Footer Section -->
+    <footer>
+        <p>© 2024 MNUMS Visual Lab | <a href="mailto:contact@mnumsvisuallab.com" style="color: #FFD700;">Contact Us</a></p>
+        <p>Making Physics Fun and Accessible</p>
+    </footer>
+</body>
+</html>
